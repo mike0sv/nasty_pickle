@@ -3,7 +3,7 @@ import pickle
 
 def main():
     # unpickle bomb
-    with open('bomb_virus_with_hi.pkl', 'rb') as f:
+    with open('bomb_virus_with_pic.pkl', 'rb') as f:
         payload = f.read()
         data = pickle.loads(payload)
         print(data)
